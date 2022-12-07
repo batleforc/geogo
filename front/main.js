@@ -1,23 +1,88 @@
-import './style.css'
-import javascriptLogo from './javascript.svg'
-import { setupCounter } from './counter.js'
+import Feature from 'ol/Feature';
+import Geolocation from 'ol/Geolocation';
+import Map from 'ol/Map';
+import Point from 'ol/geom/Point';
+import View from 'ol/View';
+import {Circle as CircleStyle, Fill, Stroke, Style} from 'ol/style';
+import {OSM, Vector as VectorSource} from 'ol/source';
+import {Tile as TileLayer, Vector as VectorLayer} from 'ol/layer';
 
-document.querySelector('#app').innerHTML = `
-  <div>
-    <a href="https://vitejs.dev" target="_blank">
-      <img src="/vite.svg" class="logo" alt="Vite logo" />
-    </a>
-    <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript" target="_blank">
-      <img src="${javascriptLogo}" class="logo vanilla" alt="JavaScript logo" />
-    </a>
-    <h1>Hello Vite!</h1>
-    <div class="card">
-      <button id="counter" type="button"></button>
-    </div>
-    <p class="read-the-docs">
-      Click on the Vite logo to learn more
-    </p>
-  </div>
-`
+const view = new View({
+  center: [0, 0],
+  zoom: 2,
+});
 
-setupCounter(document.querySelector('#counter'))
+const map = new Map({
+  layers: [
+    new TileLayer({
+      source: new OSM(),
+    }),
+  ],
+  target: 'map',
+  view: view,
+});
+
+const geolocation = new Geolocation({
+  // enableHighAccuracy must be set to true to have the heading value.
+  trackingOptions: {
+    enableHighAccuracy: true,
+  },
+  projection: view.getProjection(),
+});
+
+function el(id) {
+  return document.getElementById(id);
+}
+
+el('track').addEventListener('change', function () {
+  geolocation.setTracking(this.checked);
+});
+
+// update the HTML page when the position changes.
+geolocation.on('change', function () {
+  el('accuracy').innerText = geolocation.getAccuracy() + ' [m]';
+  el('altitude').innerText = geolocation.getAltitude() + ' [m]';
+  el('altitudeAccuracy').innerText = geolocation.getAltitudeAccuracy() + ' [m]';
+  el('heading').innerText = geolocation.getHeading() + ' [rad]';
+  el('speed').innerText = geolocation.getSpeed() + ' [m/s]';
+});
+
+// handle geolocation error.
+geolocation.on('error', function (error) {
+  const info = document.getElementById('info');
+  info.innerHTML = error.message;
+  info.style.display = '';
+});
+
+const accuracyFeature = new Feature();
+geolocation.on('change:accuracyGeometry', function () {
+  accuracyFeature.setGeometry(geolocation.getAccuracyGeometry());
+});
+
+const positionFeature = new Feature();
+positionFeature.setStyle(
+  new Style({
+    image: new CircleStyle({
+      radius: 6,
+      fill: new Fill({
+        color: '#3399CC',
+      }),
+      stroke: new Stroke({
+        color: '#fff',
+        width: 2,
+      }),
+    }),
+  })
+);
+
+geolocation.on('change:position', function () {
+  const coordinates = geolocation.getPosition();
+  positionFeature.setGeometry(coordinates ? new Point(coordinates) : null);
+});
+
+new VectorLayer({
+  map: map,
+  source: new VectorSource({
+    features: [accuracyFeature, positionFeature],
+  }),
+});
