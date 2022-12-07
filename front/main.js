@@ -6,10 +6,13 @@ import View from 'ol/View';
 import {Circle as CircleStyle, Fill, Stroke, Style} from 'ol/style';
 import {OSM, Vector as VectorSource} from 'ol/source';
 import {Tile as TileLayer, Vector as VectorLayer} from 'ol/layer';
+import { fromLonLat } from 'ol/proj';
+import { Circle } from 'ol/geom';
+import { intersects } from 'ol/extent';
 
 const view = new View({
-  center: [0, 0],
-  zoom: 2,
+  center: fromLonLat([-0.4587700, 46.3221100]),
+  zoom: 19,
 });
 
 const map = new Map({
@@ -19,7 +22,7 @@ const map = new Map({
     }),
   ],
   target: 'map',
-  view: view,
+  view: view
 });
 
 const geolocation = new Geolocation({
@@ -54,18 +57,13 @@ geolocation.on('error', function (error) {
   info.style.display = '';
 });
 
-const accuracyFeature = new Feature();
-geolocation.on('change:accuracyGeometry', function () {
-  accuracyFeature.setGeometry(geolocation.getAccuracyGeometry());
-});
-
 const positionFeature = new Feature();
 positionFeature.setStyle(
   new Style({
     image: new CircleStyle({
       radius: 6,
       fill: new Fill({
-        color: '#3399CC',
+        color: '#ee0000',
       }),
       stroke: new Stroke({
         color: '#fff',
@@ -75,14 +73,69 @@ positionFeature.setStyle(
   })
 );
 
-geolocation.on('change:position', function () {
-  const coordinates = geolocation.getPosition();
-  positionFeature.setGeometry(coordinates ? new Point(coordinates) : null);
-});
+const coordinates = fromLonLat([-0.458654, 46.322057]);
+positionFeature.setGeometry(new Point(coordinates));
 
-new VectorLayer({
-  map: map,
-  source: new VectorSource({
-    features: [accuracyFeature, positionFeature],
-  }),
+let points = []
+let radius = 5
+
+let urlposition = "http://192.168.103.88:8081/geoserver/geogo/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=geogo%3Aressource&maxFeatures=50&outputFormat=application%2Fjson"
+
+let circles = []
+
+fetch(urlposition).then((response) => response.json()).then((data) => {
+  for(let feature in data.features){
+    let point = new Feature()
+    let coord = fromLonLat(data.features[feature].geometry.coordinates)
+    point.setGeometry(new Point(coord))
+    point.setStyle(
+      new Style({
+        image: new CircleStyle({
+          radius: 6,
+          fill: new Fill({
+            color: '#3399CC',
+          }),
+          stroke: new Stroke({
+            color: '#fff',
+            width: 2,
+          }),
+        }),
+      })
+    )
+
+    let circle = new Circle(coord, 10)
+    let circleFeature = new Feature(circle)
+
+    let circleToStore = {coord: coord, radius: radius, circle: circle, circleFeature: circleFeature, point: point}
+
+    points.push(point)
+    points.push(circleFeature)
+    circles.push(circleToStore)
+  }
+  
+
+  window.setInterval(function(){
+    for(let circle in circles){
+      circles[circle]["radius"] +=5
+      circles[circle]["circleFeature"].setGeometry(new Circle(circles[circle]["coord"], circles[circle]["radius"]))
+
+      let intersect = circles[circle]["circleFeature"].getGeometry().intersectsCoordinate(positionFeature.getGeometry().flatCoordinates);
+      if (intersect){
+        console.log("youpi")
+
+        circles.filter(function(ele){ 
+            return ele != circle;
+        });
+      }
+    }
+  }, 1000);
+}).then(() => {
+  let features = points.concat([positionFeature])
+  
+  new VectorLayer({
+    map: map,
+    source: new VectorSource({
+      features: features,
+    }),
+  });
 });
