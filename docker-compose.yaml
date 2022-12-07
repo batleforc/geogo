@@ -1,0 +1,38 @@
+services:
+  postgis:
+    image: postgis/postgis
+    ports:
+      - 5432:5432
+    volumes:
+      - ./data/postgis:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_DBNAME=postgres
+      - PGDATA=/var/lib/postgresql/data
+  geoserver:
+    image: kartoza/geoserver:2.21.0
+    ports:
+      - 8081:8080
+    restart: on-failure
+    volumes:
+      - ./data/geoserver:/opt/geoserver/data_dir
+    environment:
+        GEOSERVER_DATA_DIR: /opt/geoserver/data_dir
+        GEOWEBCACHE_CACHE_DIR: /opt/geoserver/data_dir/gwc
+        GEOSERVER_ADMIN_PASSWORD: myawesomegeoserver
+        GEOSERVER_ADMIN_USER: admin
+        INITIAL_MEMORY: 2G
+        MAXIMUM_MEMORY: 4G
+    healthcheck:
+      test: curl --fail -s http://localhost:8080/ || exit 1
+      interval: 1m30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+  tomcat:
+    image: tomcat:8.5.83-jre11-temurin-focal
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data/webapps:/usr/local/tomcat/webapps

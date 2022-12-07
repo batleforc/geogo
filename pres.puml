@@ -1,0 +1,20 @@
+@startuml
+
+node "PostGis 5432" as PostGis
+node "GeoServer 8081" as GeoServer
+
+node "Front VueJS + Vite 3000" as front{
+  node OpenLayer
+}
+
+node "Back Servlet Java 8080" as back
+
+
+GeoServer --> PostGis
+
+back <--> GeoServer
+front <--> GeoServer
+
+front --> back
+
+@enduml
