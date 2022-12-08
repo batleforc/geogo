@@ -22,9 +22,13 @@ public class Geoadd extends HttpServlet {
         String latCoo = req.getParameter("lat");
         res.setContentType("text/plain");
         PrintWriter out = res.getWriter();
+        if (latCoo==""||latCoo==null || longCoo == ""||longCoo == null){
+            out.println("Empty param");
+            return;
+        }
         try {
             Class.forName("org.postgresql.Driver");
-            Connection connection = DriverManager.getConnection("jdbc:postgresql://postgis:5432/postgres?user=postgres&password=password");
+            Connection connection = DriverManager.getConnection("jdbc:postgresql://postgis:5432/postgres?user=postgres&password=postgres");
             PreparedStatement preparedStatement;
             preparedStatement = connection.prepareStatement("DELETE FROM PUBLIC.ressource WHERE  st_intersects(coo,st_geomfromtext('POINT(" +
                     longCoo + // Longitude -0.457482
